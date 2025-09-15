@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Voice Agent Live Chat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    h1 { text-align: center; margin-bottom: 20px; }
+    .container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .card {
+      background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 350px; display: flex; flex-direction: column; gap: 10px;
+    }
+    input, textarea { padding: 8px; border-radius: 5px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; }
+    button { padding: 10px; border: none; border-radius: 5px; background-color: #007bff; color: #fff; cursor: pointer; font-weight: bold; }
+    button:hover { background-color: #0056b3; }
+    #chatWindow { height: 250px; overflow-y: auto; background: #e8e8e8; padding: 10px; border-radius: 5px; }
+    .message { margin-bottom: 10px; }
+    .user { color: #0b5394; font-weight: bold; }
+    .ai { color: #008000; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🚀 AI Voice Agent Live Chat</h1>
+
+  <div class="container">
+    <!-- Start Call Card -->
+    <div class="card">
+      <h2>Start Call</h2>
+      <input id="driverName" placeholder="Driver Name" />
+      <input id="phoneNumber" placeholder="Phone Number" />
+      <input id="loadNumber" placeholder="Load Number" />
+      <button onclick="startCall()">Start Call</button>
+    </div>
+
+    <!-- AI Live Chat Card -->
+    <div class="card">
+      <h2>AI Agent Live Chat</h2>
+      <div id="chatWindow"></div>
+      <input id="driverSpeech" placeholder="Type driver speech..." />
+      <button onclick="sendToAI()">Send</button>
+    </div>
+
+    <!-- Post Call Summary Card -->
+    <div class="card">
+      <h2>Post Call Summary</h2>
+      <textarea id="callTranscript" placeholder="Enter full call transcript"></textarea>
+      <input id="summaryDriverName" placeholder="Driver Name" />
+      <input id="summaryLoadNumber" placeholder="Load Number" />
+      <button onclick="generateSummary()">Generate Summary</button>
+      <pre id="summaryLog"></pre>
+    </div>
+  </div>
+
+  <script>
+    const backendURL = "http://127.0.0.1:8000";
+
+    function appendChat(role, text) {
+      const chatWindow = document.getElementById("chatWindow");
+      const msg = document.createElement("div");
+      msg.classList.add("message", role);
+      msg.textContent = `${role === "user" ? "Driver" : "AI"}: ${text}`;
+      chatWindow.appendChild(msg);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    async function startCall() {
+      const driver_name = document.getElementById("driverName").value;
+      const phone_number = document.getElementById("phoneNumber").value;
+      const load_number = document.getElementById("loadNumber").value;
+
+      if (!driver_name || !phone_number || !load_number) {
+        alert("Please enter all details before starting call.");
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${backendURL}/start-call`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ driver_name, phone_number, load_number })
+        });
+
+        const data = await resp.json();
+        alert(data.message || "Call started!");
+      } catch (err) {
+        console.error("Fetch error:", err);
+        alert("Error starting call: " + err);
+      }
+    }
+
+    async function sendToAI() {
+      const speech_text = document.getElementById("driverSpeech").value;
+      if (!speech_text) return;
+
+      appendChat("user", speech_text);
+      document.getElementById("driverSpeech").value = "";
+
+      try {
+        const resp = await fetch(`${backendURL}/retell-webhook`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ speech_text })
+        });
+
+        const data = await resp.json();
+        appendChat("ai", data.reply || "No reply from AI");
+      } catch (err) {
+        console.error("Fetch error:", err);
+        appendChat("ai", "Error sending to AI: " + err);
+      }
+    }
+
+    async function generateSummary() {
+      const transcript = document.getElementById("callTranscript").value;
+      const driver_name = document.getElementById("summaryDriverName").value;
+      const load_number = document.getElementById("summaryLoadNumber").value;
+
+      if (!driver_name || !load_number || !transcript) {
+        alert("Please enter all details before generating summary.");
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${backendURL}/post-call`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript, driver_name, load_number })
+        });
+
+        const data = await resp.json();
+        document.getElementById("summaryLog").textContent = JSON.stringify(data.summary, null, 2);
+      } catch (err) {
+        console.error("Fetch error:", err);
+        document.getElementById("summaryLog").textContent = "Error generating summary: " + err;
+      }
+    }
+  </script>
+</body>
+</html>
